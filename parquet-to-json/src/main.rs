@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::path::Path;
 use std::error::Error;
-use fluvio::{Fluvio, TopicProducerPool, TopicProducerConfigBuilder, Compression};
+use fluvio::{Fluvio, RecordKey, TopicProducerPool, TopicProducerConfigBuilder, Compression};
 use fluvio::metadata::topic::TopicSpec;
 use parquet::record::{Field, List, Map, Row};
 use parquet::file::reader::{FileReader, SerializedFileReader};
@@ -182,7 +182,7 @@ async fn process_parquet_file(
         let result = row_to_json(&row);
 
         let res = serde_json::to_string(&result)?;
-        producer.send("key", res).await?;
+        producer.send(RecordKey::NULL, res).await?;
         count += 1;
 
         // Print progress

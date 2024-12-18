@@ -4,7 +4,7 @@ This project reads parquet files, converts each row to JSON record, and writes t
 Fluvio uses patch processing and compression to optimize performance and reduce network traffic.
 
 For this example, we use the NYC Taxi and Limousine Commission (TLC) trip record data for Jan, 2023. 
-It's large file with 18.4 million records, and it will take a few minutes so grab a cup of coffee.
+It's large file with 18.4 million records.
 
 ## Download Dataset
 
