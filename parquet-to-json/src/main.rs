@@ -181,7 +181,7 @@ async fn process_parquet_file(
         let row = row_result?;
         let result = row_to_json(&row);
 
-        let res = serde_json::to_string_pretty(&result)?;
+        let res = serde_json::to_string(&result)?;
         producer.send("key", res).await?;
         count += 1;
 
