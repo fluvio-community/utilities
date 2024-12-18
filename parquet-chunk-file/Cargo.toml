@@ -1,0 +1,9 @@
+[package]
+name = "parquet-chunk-file"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+arrow = "53.3.0"
+parquet = "53.3.0"
+clap = { version = "4.5.23", features = ["derive"] }
