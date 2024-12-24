@@ -1,0 +1,16 @@
+data/
+dictionaries_lib/
+flags/
+uuid
+status
+tmp/
+store/
+preprocessed_configs/
+store/
+target/
+format_schemas/
+user_files/
+metadata
+user_scripts/
+metadata_dropped/
+uuid/
