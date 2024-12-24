@@ -27,15 +27,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Stream Fluvio messages
     let fluvio = Fluvio::connect().await?;
     let mut stream = fluvio
-    .consumer_with_config(
-        ConsumerConfigExtBuilder::default()
-            .topic("clickhouse".to_string())
-            .offset_consumer("ch-consumer".to_string())
-            .offset_start(Offset::end())
-            .offset_strategy(OffsetManagementStrategy::Auto)
-            .build()?,
-    )
-    .await?;
+        .consumer_with_config(
+            ConsumerConfigExtBuilder::default()
+                .topic("clickhouse".to_string())
+                .offset_consumer("ch-consumer".to_string())
+                .offset_start(Offset::end())
+                .offset_strategy(OffsetManagementStrategy::Auto)
+                .build()?,
+        )
+        .await?;
 
     while let Some(Ok(record)) = stream.next().await {
         // parse fluvio event into Event struct
