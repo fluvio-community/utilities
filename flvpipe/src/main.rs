@@ -56,7 +56,7 @@ async fn main() {
     setup_logging();
 
     let mut consume = consume_stream(&opts).await.expect("failed to create consumer");
-    let mut n = opts.num_records.unwrap_or(u64::MAX);
+    let mut n = opts.num_records();
 
     const OTEL_METRICS_PREFIX: &str = "otelm:";
     if opts.out_dest.starts_with(OTEL_METRICS_PREFIX) {
@@ -142,18 +142,29 @@ fn setup_logging() {
     use tracing_subscriber::EnvFilter;
 
     tracing_subscriber::fmt()
-    // Use the RUST_LOG environment variable for filter directives
-    .with_env_filter(
-        EnvFilter::try_from_default_env()
-            .unwrap_or_else(|_| EnvFilter::new(DEFAULT_RUST_LOG))
-    )
-    // Show line numbers
-    .with_file(true)
-    .with_line_number(true)
-    // Show target module path
-    // .with_target(true)
-    // // Show span events (enter/exit)
-    // .with_span_events(tracing_subscriber::FmtSpan::FULL)
-    // Initialize the subscriber
-    .init();
+        .with_env_filter(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new(DEFAULT_RUST_LOG))
+        )
+        // Show line numbers
+        .with_file(true)
+        .with_line_number(true)
+        // Show target module path
+        // .with_target(true)
+        // // Show span events (enter/exit)
+        // .with_span_events(tracing_subscriber::FmtSpan::FULL)
+        // Initialize the subscriber
+        .init();
+}
+
+impl CliOpts {
+    fn num_records(&self) -> u64 {
+        let mut n = self.num_records.unwrap_or(u64::MAX);
+        if let Some(end) = self.end {
+            if n > end as u64 {
+                n = end as u64;
+            }
+        };
+        n
+    }
 }
