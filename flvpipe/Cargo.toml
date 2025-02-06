@@ -1,0 +1,18 @@
+[package]
+name = "flvpipe"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+bytes = "1.10"
+clap = { version = "4.5.27", features = ["derive"] }
+fluvio = "0.24.4"
+futures-util = { version = "0.3.6", default-features = false }
+opentelemetry-proto = { version = "0.27.0", features = ["gen-tonic", "gen-tonic-messages", "metrics"], default-features = false }
+prost = "0.13.4"
+reqwest = "0.12.12"
+tokio = { version = "1.43.0", features = ["rt-multi-thread", "tracing"] }
+tonic = { version = "0.12.3", default-features = false, features = ["transport", "tls"] }
+tracing = { version = "0.1.41", features = ["log"] }
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
