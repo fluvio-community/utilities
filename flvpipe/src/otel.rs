@@ -1,11 +1,9 @@
-
-use std::error::Error;
-use reqwest::{Client, header};
 use opentelemetry_proto::tonic::{
-    collector::metrics::v1::ExportMetricsServiceRequest,
-    metrics::v1::ResourceMetrics,
+    collector::metrics::v1::ExportMetricsServiceRequest, metrics::v1::ResourceMetrics,
 };
 use prost::Message;
+use reqwest::{header, Client};
+use std::error::Error;
 
 pub(crate) struct OtelMetrics {
     endpoint: String,
@@ -23,7 +21,7 @@ impl OtelMetrics {
         Self {
             endpoint,
             // channel: None,
-            client: Client::new()
+            client: Client::new(),
         }
     }
 
@@ -31,7 +29,10 @@ impl OtelMetrics {
         Ok(())
     }
 
-    pub async fn send_metrics_packet(&self, raw_metrics_bytes: Vec<u8>) -> Result<(), Box<dyn Error>> {
+    pub async fn send_metrics_packet(
+        &self,
+        raw_metrics_bytes: Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
         let rm = ResourceMetrics::decode(&raw_metrics_bytes[..])?;
         let export_request = ExportMetricsServiceRequest {
             resource_metrics: vec![rm],
@@ -39,10 +40,14 @@ impl OtelMetrics {
         let bytes = export_request.encode_to_vec();
 
         // Set up the headers required by the OTLP collector
-        let response = self.client
+        let response = self
+            .client
             .post(&self.endpoint)
             .header(header::CONTENT_TYPE, "application/x-protobuf")
-            .header("x-protobuf-message", "opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest")
+            .header(
+                "x-protobuf-message",
+                "opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest",
+            )
             .body(bytes)
             .send()
             .await?;
@@ -54,12 +59,15 @@ impl OtelMetrics {
             }
             status => {
                 let error_body = response.text().await?;
-                Err(format!("Failed to send metrics. Status: {}, Body: {}", status, error_body).into())
+                Err(format!(
+                    "Failed to send metrics. Status: {}, Body: {}",
+                    status, error_body
+                )
+                .into())
             }
         }
     }
 }
-
 
 // grpc fail
 // use anyhow::anyhow;

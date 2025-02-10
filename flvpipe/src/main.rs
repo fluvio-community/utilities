@@ -1,17 +1,10 @@
-
 use anyhow::Result;
 use clap::Parser;
-use fluvio::Fluvio;
+use fluvio::consumer::{ConsumerStream, Record};
 use fluvio::dataplane::link::ErrorCode;
+use fluvio::Fluvio;
 use fluvio::{spu::SpuSocketPool, TopicProducer};
-use fluvio::{
-    Offset,
-    RecordKey
-};
-use fluvio::consumer::{
-    ConsumerStream,
-    Record,
-};
+use fluvio::{Offset, RecordKey};
 use futures_util::stream::StreamExt;
 
 mod otel;
@@ -27,11 +20,18 @@ struct CliOpts {
     #[clap(long = "in-profile")]
     in_profile: Option<String>,
 
+    /// consumer id to use for offset management (optional)
+    ///
+    /// see https://www.fluvio.io/docs/latest/fluvio/concepts/consumers#consumer-offsets
+    /// for more info
+    #[clap(long = "in-consumer-id")]
+    in_consumer_id: Option<String>,
+
     /// destination to produce to, a topic name e.g. "cat-facts", or "otelm:"
     ///
     /// ""otelm:<addr>" send to otel metrics collector endpoint
     ///    "otelm:", blank default http://localhost:4318/v1/metrics
-    ///    "otelm:http://another.host:4318/v1/metrics" for another host
+    ///    "otelm:http://anhttps://www.fluvio.io/docs/latest/fluvio/concepts/consumers#consumer-offsetsother.host:4318/v1/metrics" for another host
     out_dest: String,
 
     /// fluvio profile to use, current if not provided
@@ -48,19 +48,19 @@ struct CliOpts {
     end: Option<u32>,
 }
 
-
 #[tokio::main]
 async fn main() {
     let opts = CliOpts::parse();
 
     setup_logging();
 
-    let mut consume = consume_stream(&opts).await.expect("failed to create consumer");
+    let mut consume = consume_stream(&opts)
+        .await
+        .expect("failed to create consumer");
     let mut n = opts.num_records();
 
     const OTEL_METRICS_PREFIX: &str = "otelm:";
     if opts.out_dest.starts_with(OTEL_METRICS_PREFIX) {
-
         // split out addr from the reset of the parameter
         let addr = opts.out_dest.trim_start_matches(OTEL_METRICS_PREFIX);
         let mut otel = otel::OtelMetrics::new(addr.to_string());
@@ -71,14 +71,18 @@ async fn main() {
                 break;
             };
             let raw_metrics_bytes = record.value().to_vec();
-            otel.send_metrics_packet(raw_metrics_bytes).await
+            otel.send_metrics_packet(raw_metrics_bytes)
+                .await
                 .inspect_err(|err| {
                     tracing::debug!("error sending metrics: {}", err);
-                }).expect("failed to send metrics");
+                })
+                .expect("failed to send metrics");
             n -= 1;
         }
     } else {
-        let produce = produce_stream(&opts).await.expect("failed to create producer");
+        let produce = produce_stream(&opts)
+            .await
+            .expect("failed to create producer");
         while n > 0 {
             let Some(Ok(record)) = consume.next().await else {
                 break;
@@ -89,52 +93,58 @@ async fn main() {
             };
             fut.inspect_err(|err| {
                 tracing::debug!("error sending metrics: {}", err);
-            }).expect("failed to send metrics");
+            })
+            .expect("failed to send metrics");
             n -= 1;
         }
     }
 }
 
 /// connect to fluvio with consume side options
-async fn consume_stream(opts: &CliOpts) -> Result<impl ConsumerStream<Item = std::result::Result<Record, ErrorCode>>> {
+async fn consume_stream(
+    opts: &CliOpts,
+) -> Result<impl ConsumerStream<Item = std::result::Result<Record, ErrorCode>>> {
     let fluvio = match &opts.in_profile {
         None => Fluvio::connect().await,
         Some(profile) if profile == "-" => Fluvio::connect().await,
         Some(profile) => Fluvio::connect_with_profile(profile).await,
-    }.expect("failed to connect to fluvio");
+    }
+    .expect("failed to connect to fluvio");
 
     let off_start = match (opts.start, opts.end) {
         (None, None) => Offset::beginning(),
-        (Some(start), None) => Offset::absolute(start).expect("invalid start offset, start must be positive"),
-        (None, Some(end)) => {
-            Offset::from_end(end)
-        },
+        (Some(start), None) => {
+            Offset::absolute(start).expect("invalid start offset, start must be positive")
+        }
+        (None, Some(end)) => Offset::from_end(end),
         _ => panic!("cannot specify both start and end"),
     };
 
-    let consumer_config = fluvio::consumer::ConsumerConfigExtBuilder::default()
-        .topic(&opts.in_topic)
-        .offset_start(off_start)
-        .build()
-        .expect("failed to setup consumer config");
+    let mut cc_builder = fluvio::consumer::ConsumerConfigExtBuilder::default();
+    let cc_builder = cc_builder.topic(&opts.in_topic).offset_start(off_start);
+    if let Some(consumer_id) = &opts.in_consumer_id {
+        cc_builder.offset_consumer(consumer_id);
+    }
 
+    let consumer_config = cc_builder.build().expect("failed to build consumer config");
     fluvio.consumer_with_config(consumer_config).await
 }
 
 /// connect to fluvio with consume side options
 async fn produce_stream(opts: &CliOpts) -> Result<TopicProducer<SpuSocketPool>> {
     let fluvio = match &opts.out_profile {
-        Some(profile) => Fluvio::connect_with_profile(profile)
-            .await,
-        None => Fluvio::connect()
-            .await,
-    }.expect("failed to connect to fluvio");
+        Some(profile) => Fluvio::connect_with_profile(profile).await,
+        None => Fluvio::connect().await,
+    }
+    .expect("failed to connect to fluvio");
 
     let config = fluvio::TopicProducerConfigBuilder::default()
         .build()
         .expect("failed to setup producer config");
 
-    fluvio.topic_producer_with_config(&opts.out_dest, config).await
+    fluvio
+        .topic_producer_with_config(&opts.out_dest, config)
+        .await
 }
 
 /// setup to use RUST_LOG
@@ -143,8 +153,7 @@ fn setup_logging() {
 
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new(DEFAULT_RUST_LOG))
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(DEFAULT_RUST_LOG)),
         )
         // Show line numbers
         .with_file(true)
